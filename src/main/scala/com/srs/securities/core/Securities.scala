@@ -15,6 +15,7 @@ import com.srs.securities.domain.security.*
 
 trait Securities[F[_]] {
   def find(id: UUID): F[Option[Security]]
+  def findBySecid(secid: String): F[List[Security]]
   def all(): F[List[Security]]
   def create(security: Security): F[UUID]
   def update(security: Security): F[Option[Security]]
@@ -23,6 +24,11 @@ trait Securities[F[_]] {
 
 final class LiveSecurities[F[_]: MonadCancelThrow: Logger] private (xa: Transactor[F])
     extends Securities[F] {
+  override def findBySecid(secid: String): F[List[Security]] = 
+    sql"SELECT * FROM securities WHERE secid = ${secid}"
+      .query[Security]
+      .to[List]
+      .transact(xa)  
   override def find(id: UUID): F[Option[Security]] =
     sql"SELECT * FROM securities WHERE id = ${id}"
       .query[Security]

@@ -38,11 +38,13 @@ final class LiveSecurities[F[_]: MonadCancelThrow: Logger] private (xa: Transact
   override def create(security: Security): F[UUID] =
     sql"""
     INSERT INTO securities (
+      id,
       secid,
       regnumber,
       name,
       emitent_title
     ) VALUES (
+      ${security.id},
       ${security.secid},
       ${security.regnumber},
       ${security.name},

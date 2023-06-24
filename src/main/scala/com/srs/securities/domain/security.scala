@@ -4,7 +4,7 @@ import java.util.UUID
 
 object security {
   case class Security(
-      id: UUID,
+      id: UUID = UUID.randomUUID(),
       secid: String,
       regnumber: String,
       name: String,

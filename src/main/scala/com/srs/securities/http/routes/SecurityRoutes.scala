@@ -20,9 +20,13 @@ import com.srs.securities.core.*
 import com.srs.securities.domain.security.*
 import com.srs.securities.logging.syntax.*
 import com.srs.securities.http.responses.*
+import com.srs.securities.http.validation.syntax.*
+
+import com.srs.securities.http.dto.*
+import com.srs.securities.domain.security
 
 class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F])
-    extends Http4sDsl[F] {
+    extends HttpValidationDsl[F] {
 
   private val allSecuritiesRoute: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root =>
     for {
@@ -39,8 +43,39 @@ class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F
       }
   }
 
+  private val createSecurityRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ POST -> Root / "create" =>
+      req.validate[SecurityDto] { securityDto =>
+        for {
+          id   <- securities.create(securityDto.toSec)
+          resp <- Created(id)
+        } yield resp
+      }
+  }
+
+  private val updateSecurityRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ PUT -> Root / UUIDVar(id) =>
+      req.validate[SecurityDto] { securityDto =>
+        securities.find(id) flatMap {
+          case None =>
+            NotFound(FailureResponse(s"Cannot update security $id: not found"))
+          case Some(sec) =>
+            securities.update(securityDto.toSecWithId(id)) *> Ok()
+        }
+      }
+  }
+
+  private val deleteSecurityRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ DELETE -> Root / UUIDVar(id) =>
+      securities.find(id) flatMap {
+        case None =>
+          NotFound(FailureResponse(s"Cannot delete security $id: not found"))
+        case Some(_) => securities.delete(id) *> Ok()
+      }
+  }
+
   val routes = Router(
-    "/securities" -> (allSecuritiesRoute <+> findSecurityRoutes)
+    "/securities" -> (allSecuritiesRoute <+> findSecurityRoutes <+> createSecurityRoute <+> updateSecurityRoute <+> deleteSecurityRoute)
   )
 }
 

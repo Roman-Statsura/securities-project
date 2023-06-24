@@ -19,7 +19,7 @@ lazy val javaMailVersion            = "1.6.2"
 
 lazy val server = (project in file("."))
   .settings(
-    name         := "typelevel-project",
+    name         := "securities-project",
     scalaVersion := scala3Version,
     organization := srs,
     libraryDependencies ++= Seq(

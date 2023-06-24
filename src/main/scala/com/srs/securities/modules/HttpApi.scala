@@ -17,9 +17,10 @@ import com.srs.securities.core.*
 class HttpApi[F[_]: Concurrent: Logger] private (core: Core[F]) {
   private val securityRoutes = SecurityRoutes[F](core.securities, core.histories).routes
   private val historyRoutes  = HistoryRoutes[F](core.histories, core.securities).routes
+  private val summaryRoutes  = SummaryRoutes[F](core.summaries).routes
 
   val endpoints = Router(
-    "/api" -> (securityRoutes <+> historyRoutes)
+    "/api" -> (securityRoutes <+> historyRoutes <+> summaryRoutes)
   )
 }
 

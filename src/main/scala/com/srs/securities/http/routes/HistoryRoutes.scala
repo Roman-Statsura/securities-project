@@ -29,6 +29,18 @@ class HistoryRoutes[F[_]: Concurrent: Logger] private (
     securities: Securities[F]
 ) extends HttpValidationDsl[F] {
 
+  private val importHistoryRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ POST -> Root / "import" =>
+      req.as[List[HistoryDto]].flatMap { list => 
+        list.traverse { dto => 
+          for {
+            se <- securities.findBySecid(dto.secid)
+            _ <- if (se.nonEmpty) histories.create(dto.toDomain).map(Some(_)) else None.pure[F]
+          } yield ()
+        } *> Ok() 
+      }
+  }
+
   private val allHistoriesRoute: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root =>
     for {
       historiesList <- histories.all()
@@ -112,7 +124,7 @@ class HistoryRoutes[F[_]: Concurrent: Logger] private (
 
   val routes = Router(
     "/histories" -> (allHistoriesRoute <+> findHistoryByIdRoutes <+> findHistoriesBySecidRoutes <+> 
-      createHistoryRoute <+> updateHistoryRoute <+> deleteHistoryRoute <+> deleteHistoryBySecidRoute)
+      createHistoryRoute <+> updateHistoryRoute <+> deleteHistoryRoute <+> deleteHistoryBySecidRoute <+> importHistoryRoute)
   )
 }
 

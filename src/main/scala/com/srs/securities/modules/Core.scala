@@ -10,7 +10,11 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import com.srs.securities.core.*
 import com.srs.securities.config.*
 
-final class Core[F[_]] private (val securities: Securities[F], val histories: Histories[F])
+final class Core[F[_]] private (
+    val securities: Securities[F],
+    val histories: Histories[F],
+    val summaries: LiveSummaries[F]
+)
 
 object Core {
   def apply[F[_]: Async: Logger](
@@ -19,7 +23,8 @@ object Core {
     val coreF = for {
       securities <- LiveSecurities[F](xa)
       histories  <- LiveHistories[F](xa)
-    } yield new Core(securities, histories)
+      summaries  <- LiveSummaries[F](xa)
+    } yield new Core(securities, histories, summaries)
 
     Resource.eval(coreF)
   }

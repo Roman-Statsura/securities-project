@@ -25,8 +25,18 @@ import com.srs.securities.http.validation.syntax.*
 import com.srs.securities.http.dto.*
 import com.srs.securities.domain.security
 
-class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F])
+class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F], histories: Histories[F])
     extends HttpValidationDsl[F] {
+
+  private val importSecuritiesRoute: HttpRoutes[F] = HttpRoutes.of[F] {
+    case req @ POST -> Root / "import" =>
+      req.as[List[SecurityDto]].flatMap { listDto =>
+        for {
+          _ <- listDto.traverse(x => securities.create(x.toSec))
+          resp <- Ok()
+        } yield resp
+      }
+  }    
 
   private val allSecuritiesRoute: HttpRoutes[F] = HttpRoutes.of[F] { case GET -> Root =>
     for {
@@ -60,7 +70,16 @@ class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F
           case None =>
             NotFound(FailureResponse(s"Cannot update security $id: not found"))
           case Some(sec) =>
-            securities.update(securityDto.toSecWithId(id)) *> Ok()
+            if (sec.secid == securityDto.secid)
+              securities.update(securityDto.toSecWithId(id)) *> Ok()
+            else
+              for {
+                se <- securities.findBySecid(sec.secid)
+                isNeedDelete = se.filter(_.id != sec.id).isEmpty
+                _ <- if (isNeedDelete) histories.deleteBySecid(sec.secid) else false.pure[F]
+                _ <- securities.delete(sec.id)
+                resp <- Ok()
+              } yield resp
         }
       }
   }
@@ -70,16 +89,24 @@ class SecurityRoutes[F[_]: Concurrent: Logger] private (securities: Securities[F
       securities.find(id) flatMap {
         case None =>
           NotFound(FailureResponse(s"Cannot delete security $id: not found"))
-        case Some(_) => securities.delete(id) *> Ok()
+        case Some(sec) => 
+          for {
+            se <- securities.findBySecid(sec.secid)
+            isNeedDelete = se.filter(_.id != sec.id).isEmpty
+            _ <- if (isNeedDelete) histories.deleteBySecid(sec.secid) else false.pure[F]
+            _ <- securities.delete(sec.id)
+            resp <- Ok()
+          } yield resp
       }
   }
 
   val routes = Router(
-    "/securities" -> (allSecuritiesRoute <+> findSecurityRoutes <+> createSecurityRoute <+> updateSecurityRoute <+> deleteSecurityRoute)
+    "/securities" -> (importSecuritiesRoute <+> allSecuritiesRoute <+> findSecurityRoutes <+> 
+      createSecurityRoute <+> updateSecurityRoute <+> deleteSecurityRoute)
   )
 }
 
 object SecurityRoutes {
-  def apply[F[_]: Concurrent: Logger](securities: Securities[F]) =
-    new SecurityRoutes[F](securities)
+  def apply[F[_]: Concurrent: Logger](securities: Securities[F], histories: Histories[F]) =
+    new SecurityRoutes[F](securities, histories)
 }

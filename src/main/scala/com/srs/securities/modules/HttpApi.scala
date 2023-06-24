@@ -15,15 +15,15 @@ import com.srs.securities.http.routes.*
 import com.srs.securities.core.*
 
 class HttpApi[F[_]: Concurrent: Logger] private (core: Core[F]) {
-  private val securityRoutes = SecurityRoutes[F](core.securities).routes
+  private val securityRoutes = SecurityRoutes[F](core.securities, core.histories).routes
+  private val historyRoutes  = HistoryRoutes[F](core.histories, core.securities).routes
 
   val endpoints = Router(
-    "/api" -> (securityRoutes)
+    "/api" -> (securityRoutes <+> historyRoutes)
   )
 }
 
 object HttpApi {
-
   def apply[F[_]: Async: Logger](
       core: Core[F]
   ): Resource[F, HttpApi[F]] =

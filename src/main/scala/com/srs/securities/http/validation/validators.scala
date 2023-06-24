@@ -47,4 +47,26 @@ object validators {
       validEmitentTitle
     ).mapN(SecurityDto.apply)
   }
+
+  given historyValidator: Validator[HistoryDto] = (history: HistoryDto) => {
+    val HistoryDto(
+      secid,
+      tradedate,
+      numtrades,
+      open,
+      close
+    ) = history
+
+    val validSecid     = validateRequired(secid, "secid")(_.nonEmpty)
+    val validTradedate = validateRequired(tradedate, "tradedate")(_.nonEmpty)
+    val validNumtrades = validateRequired(numtrades, "numtrades")(_ > 0d)
+
+    (
+      validSecid,
+      validTradedate,
+      validNumtrades,
+      open.validNel,
+      close.validNel
+    ).mapN(HistoryDto.apply)
+  }
 }

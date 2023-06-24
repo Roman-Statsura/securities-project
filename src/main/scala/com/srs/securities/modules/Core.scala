@@ -10,16 +10,16 @@ import org.typelevel.log4cats.slf4j.Slf4jLogger
 import com.srs.securities.core.*
 import com.srs.securities.config.*
 
-final class Core[F[_]] private (val securities: Securities[F])
+final class Core[F[_]] private (val securities: Securities[F], val histories: Histories[F])
 
-// postgres -> jobs -> core -> app
 object Core {
   def apply[F[_]: Async: Logger](
       xa: Transactor[F]
   ): Resource[F, Core[F]] = {
     val coreF = for {
       securities <- LiveSecurities[F](xa)
-    } yield new Core(securities)
+      histories  <- LiveHistories[F](xa)
+    } yield new Core(securities, histories)
 
     Resource.eval(coreF)
   }
